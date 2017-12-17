@@ -1,8 +1,8 @@
+'use stric';
+import WebSocket from "ws"
+
+
 const 
-    // Imports 
-    WebSocket = require("ws"),
-
-
     // Globals
     BITSO_ENDPOINT = 'wss://ws.bitso.com',
     SUBSCRIPTIONS = [
