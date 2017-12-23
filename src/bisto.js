@@ -2,7 +2,7 @@
 
 import WebSocket from "ws"
 import Rx from 'rxjs';
-import { incomingMessageBitso } from './redux/modules/bitso'
+import { incomingMessageBitso, connectionToBitsoClosed, connectionToBitsoOpen } from './redux/modules/bitso'
 
 
 
@@ -25,11 +25,16 @@ export const connectToBitso = ({  dispatch }) => {
         observer => {
             const websocket = new WebSocket(BITSO_ENDPOINT)
 
-            websocket.on('close', observer.complete)
+            websocket.on('close', () => {
+                dispatch( connectionToBitsoClosed() )
+                observer.complete()
+            })
+            
             websocket.on('error', observer.error)
             websocket.on('message', message => observer.next(JSON.parse(message)))
 
             websocket.on('open', () => {
+                dispatch( connectionToBitsoOpen() )
                 SUBSCRIPTIONS.forEach(
                     subscription => websocket.send(JSON.stringify(subscription))
                 )

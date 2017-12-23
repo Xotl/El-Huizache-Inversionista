@@ -12,6 +12,7 @@ const
     ETHERIUM_SYMBOL = 'eth',
     RIPPLE_SYMBOL = 'xrp',
     InitialState = {
+        connectedToBitso: false,
         marketValueOfEtherium: null,
         marketValueOfRipple: null
     }
@@ -22,7 +23,9 @@ const
     BOOK_SUBSCRIBED = 'el-huizache-inversionista/bitso/BOOK_SUBSCRIBED',
     INCOMING_MESSAGE = 'el-huizache-inversionista/bitso/INCOMING_MESSAGE',
     TRADE_BUY_RECEIVED = 'el-huizache-inversionista/bitso/TRADE_BUY_RECEIVED',
-    TRADE_SELL_RECEIVED = 'el-huizache-inversionista/bitso/TRADE_SELL_RECEIVED'
+    TRADE_SELL_RECEIVED = 'el-huizache-inversionista/bitso/TRADE_SELL_RECEIVED',
+    CONNECTION_TO_BITSO_OPEN = 'el-huizache-inversionista/bitso/CONNECTION_TO_BITSO_OPEN',
+    CONNECTION_TO_BITSO_CLOSED = 'el-huizache-inversionista/bitso/CONNECTION_TO_BITSO_CLOSED'
 
 
 
@@ -39,6 +42,9 @@ export default function reducer(state = InitialState, action = {}) {
                 default: return state
             }
         
+        case CONNECTION_TO_BITSO_OPEN: return Object.assign({}, state, { connectedToBitso: true })
+        case CONNECTION_TO_BITSO_CLOSED: return Object.assign({}, state, { connectedToBitso: false })
+            
         default: return state
     }
 }
@@ -61,6 +67,14 @@ export const tradeBuyReceived = (amount, rate, value, major, minor) => ({
 export const tradeSellReceived = (amount, rate, value, major, minor) => ({
     type: TRADE_SELL_RECEIVED,
     amount, rate, value, major, minor
+})
+
+export const connectionToBitsoClosed = () => ({
+    type: CONNECTION_TO_BITSO_CLOSED
+})
+
+export const connectionToBitsoOpen = () => ({
+    type: CONNECTION_TO_BITSO_OPEN
 })
 
 
