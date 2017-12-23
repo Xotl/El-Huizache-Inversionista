@@ -14,45 +14,18 @@ const
 
 
 
-
-// Reducers
-
-const buysReducer = (state = {}, { messageType, book, payload }) => {
-    console.log(messageType, book, payload)
-    switch (true) {
-        case payload !== 'object': return state
-        case messageType === 'trades':
-            payload.forEach(
-                (elem) => {
-                    const { a: amount, r: rate, v: value, t: sell } = elem
-
-                    console.log(`${sell ? 'Vendiendo' : 'Comprando'} ${amount} de ${book} a ${rate} por ${value}`)
-                }
-            )
-            return state
-
-            
-        default: return state
-    }
+// Reducer helpers
+const tradesReducer = (state = {}, { messageType, book, payload }) => {
+    return state
 }
 
-const sellsReducer = (state, { messageType }) => {
-    switch (messageType) {
-        case 'trades':
-
-            
-        default: return state
-    }
-}
-
+    
+// Reducer
 export default function reducer(state = {}, action = {}) {
 
     switch (action.type) {
         case INCOMING_MESSAGE:
-            return Object.assign({}, state, {
-                sells: sellsReducer(state.sells, action),
-                buys: buysReducer(state.buys, action)
-            })
+            return tradesReducer(state, action)
     
         default: return state
     }
@@ -61,10 +34,11 @@ export default function reducer(state = {}, action = {}) {
 
 
 // Action Creators
-export const incomingMessageBitso = (book, messageType, message) => ({
+export const incomingMessageBitso = (book, messageType, payload) => ({
     type: INCOMING_MESSAGE,
+    book,
     messageType,
-    message
+    payload
 })
 
 
@@ -73,27 +47,25 @@ export const incomingMessageBitso = (book, messageType, message) => ({
 export const incomingMessageBitsoEpic = action$ => 
     action$
         .ofType(INCOMING_MESSAGE)
-        .do( action => console.log('Action procesada', action.type) )
+        .do( ({ messageType, book, payload }) => {
+
+            if ( messageType !== 'trades' || typeof payload !== 'object' || typeof book === 'undefined') {
+                return
+            }
+            
+            const { major, minor } = book.split('_').reduce( (major, minor) => ({ major, minor }) )
+        
+            payload.forEach(
+                (elem) => {
+                    const { a: amount, r: rate, v: value, t: sell } = elem
+        
+                    if (sell) {
+                        console.log(`Alguien vendió ${amount}${major} a $${rate}${minor}c/u con valor de $${value}${minor}`)
+                    }
+                    else {
+                        console.log(`Alguien compró ${amount}${major} a $${rate}${minor}c/u con valor de $${value}${minor}`)
+                    }
+                }
+            )
+        } )
         .ignoreElements()
-
-    // action$.ofType(INCOMING_MESSAGE)
-    //     .map(({ book, messageType, message }) => {
-    //         switch (messageType) {
-    //             case 'trades':
-    //                 console.log(`Trade ${book} => `, payload)
-    //                 break;
-
-    //             case 'diff-orders':
-    //                 console.log('Diff', payload)
-    //                 break;
-
-    //             case 'orders':
-    //                 console.log('Orders', payload)
-    //                 break;
-
-    //             default:
-    //                 console.log(`Algo raro "${messageType}"`, payload)
-    //                 break;
-    //         }
-    //     })
-// }
