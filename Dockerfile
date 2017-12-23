@@ -8,4 +8,4 @@ ADD package.json ${APP_FOLDER}/package.json
 RUN npm install
 ADD . ${APP_FOLDER}
 
-CMD [ "node", "index.js" ]
+CMD [ "npm", "start" ]
