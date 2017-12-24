@@ -3,7 +3,8 @@
 // import 'rxjs/add/operator/map';
 // import 'rxjs/add/operator/do';
 // import 'rxjs/add/operator/ignoreElements';
-import 'rxjs';
+import 'rxjs'
+import { newPriceReported, newTransactionReported } from './inversion'
 
 
 
@@ -13,8 +14,8 @@ const
     RIPPLE_SYMBOL = 'xrp',
     InitialState = {
         connectedToBitso: false,
-        marketValueOfEtherium: null,
-        marketValueOfRipple: null
+        marketValueOf_eth: null,
+        marketValueOf_xrp: null,
     }
 
 
@@ -35,12 +36,7 @@ export default function reducer(state = InitialState, action = {}) {
     switch (action.type) {
         case TRADE_BUY_RECEIVED:
         case TRADE_SELL_RECEIVED:
-
-            switch (action.major) {
-                case ETHERIUM_SYMBOL: return Object.assign({}, state, { marketValueOfEtherium: action.rate })
-                case RIPPLE_SYMBOL: return Object.assign({}, state, { marketValueOfRipple: action.rate })
-                default: return state
-            }
+            return Object.assign({}, state, { [`marketValueOf_${action.major}`]: action.rate } )
         
         case CONNECTION_TO_BITSO_OPEN: return Object.assign({}, state, { connectedToBitso: true })
         case CONNECTION_TO_BITSO_CLOSED: return Object.assign({}, state, { connectedToBitso: false })
@@ -59,14 +55,14 @@ export const incomingMessageBitso = (book, messageType, payload) => ({
     payload
 })
 
-export const tradeBuyReceived = (amount, rate, value, major, minor) => ({
+export const tradeBuyReceived = (amount, rate, value, major, minor, marketPrice) => ({
     type: TRADE_BUY_RECEIVED,
-    amount, rate, value, major, minor
+    amount, rate, value, major, minor, marketPrice
 })
 
-export const tradeSellReceived = (amount, rate, value, major, minor) => ({
+export const tradeSellReceived = (amount, rate, value, major, minor, marketPrice) => ({
     type: TRADE_SELL_RECEIVED,
-    amount, rate, value, major, minor
+    amount, rate, value, major, minor, marketPrice
 })
 
 export const connectionToBitsoClosed = () => ({
@@ -79,7 +75,7 @@ export const connectionToBitsoOpen = () => ({
 
 
 // Side effects
-export const incomingMessageBitsoEpic = action$ => 
+export const incomingMessageBitsoEpic = (action$, store) => 
     action$
         .ofType(INCOMING_MESSAGE)
         .filter( 
@@ -96,22 +92,29 @@ export const incomingMessageBitsoEpic = action$ =>
         )
         .map(
             ({ messageType, amount, rate, value, sell, major, minor, book }) => {
+                const { bitso: { [`marketValueOf_${major}`]: marketPrice } } = store.getState()
                 if (sell) {
-                    return tradeSellReceived(amount, rate, value, major, minor)
+                    return tradeSellReceived(amount, rate, value, major, minor, marketPrice)
                 }
 
-                return tradeBuyReceived(amount, rate, value, major, minor)
+                return tradeBuyReceived(amount, rate, value, major, minor, marketPrice)
             }
         )
 
-export const printMarketPriceEpic = (action$, store) => 
-        action$
-            .ofType(TRADE_BUY_RECEIVED, TRADE_SELL_RECEIVED)
-            .do( () => {
-                const { bitso: { marketValueOfEtherium: eth, marketValueOfRipple: xrp } } = store.getState()
-                console.log(`Market => Etherium: ${eth} mxn, Ripple ${xrp} mxn`)
-            } )
-            .ignoreElements()
+export const notifyNewTransactionEpic = action$ => 
+    action$
+        .ofType(TRADE_BUY_RECEIVED, TRADE_SELL_RECEIVED)
+        .map( ({ amount, rate, major }) => newTransactionReported(amount, rate, major) )
+
+export const notifyNewPricesEpic = action$ => 
+    action$
+        .ofType(TRADE_BUY_RECEIVED, TRADE_SELL_RECEIVED)
+        .map( ({ rate, major, marketPrice }) => {
+            if ( rate !== marketPrice ) {
+                return newPriceReported(rate, major, marketPrice);
+            }
+        } )
+        .filter( action => action !== undefined)
 
 export const tradeBuyEpic = action$ => 
     action$

@@ -2,17 +2,22 @@
 
 import { combineEpics } from 'redux-observable'
 import { combineReducers } from 'redux'
-import bitso, { incomingMessageBitsoEpic, printMarketPriceEpic, tradeBuyEpic, tradeSellEpic } from './bitso'
+import bitso, { incomingMessageBitsoEpic, printMarketPriceEpic, 
+       tradeBuyEpic, tradeSellEpic, notifyNewPricesEpic, notifyNewTransactionEpic } from './bitso'
 import slack, { postMessageEpic, postMessageSuccessEpic } from './slack'
+import inversion, { printPriceDetailsEpic } from './inversion'
 
 export const rootEpic = combineEpics(
   // Bitso
-  incomingMessageBitsoEpic, printMarketPriceEpic, //tradeBuyEpic, tradeSellEpic
+  incomingMessageBitsoEpic, notifyNewPricesEpic, notifyNewTransactionEpic,// tradeBuyEpic, tradeSellEpic
 
   // Slack
-  postMessageEpic, postMessageSuccessEpic
+  postMessageEpic, postMessageSuccessEpic,
+
+  // Inversion
+  printPriceDetailsEpic
 );
 
 export const rootReducer = combineReducers({
-  bitso, slack
+  bitso, slack, inversion
 });
