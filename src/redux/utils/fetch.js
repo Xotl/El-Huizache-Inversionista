@@ -12,10 +12,9 @@ export const fetch = (options) => new Promise(
 
             const getResponseObj = () => response
             try {
-                payload = JSON.parse(body)
                 resolve({
                     statusCode: response.statusCode,
-                    payload,
+                    payload: JSON.parse(body),
                     getResponseObj,
                     body
                 })

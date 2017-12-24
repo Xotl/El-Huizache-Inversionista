@@ -44,7 +44,7 @@ export const postMessageError = () => ({
 export const postMessageEpic = action$ => 
     action$
         .ofType(POST_MESSAGE)
-        .map(
+        .mergeMap(
             ({ text, channel }) => Rx.Observable.fromPromise(
                 Fetch({
                     uri: `${SLACK_BASE_URL}/chat.postMessage`,
@@ -53,13 +53,10 @@ export const postMessageEpic = action$ =>
                 })
             )
         )
-        .map( (body) => {
-            console.log('Wow, such debugging', body)
-            return postMessageSuccess(body)
-        } )
+        .map( ({ payload }) => postMessageSuccess(payload) )
 
 export const postMessageSuccessEpic = action$ => 
     action$
         .ofType(POST_MESSAGE_SUCCESS)
-        .do( details => console.log('Mensaje enviado', details) )
+        .do( ({ details }) => console.log('Mensaje enviado', details) )
         .ignoreElements()
