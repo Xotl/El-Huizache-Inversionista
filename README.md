@@ -7,4 +7,4 @@
 `docker build -t el-huizache-inversionista .`
 
 ### Run it
-`docker run -it --rm --name huizache -v ${PWD}/src:/home/node/app/src el-huizache-inversionista`
+`docker run -it --rm --name huizache -e SLACK_CHANNEL="Slack channel id" -e OAUTH_TOKEN="Slack Bearer token" -v ${PWD}/src:/home/node/app/src el-huizache-inversionista`
