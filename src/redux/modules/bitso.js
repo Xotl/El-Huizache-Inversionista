@@ -3,13 +3,18 @@
 // import 'rxjs/add/operator/map';
 // import 'rxjs/add/operator/do';
 // import 'rxjs/add/operator/ignoreElements';
-import 'rxjs'
+import Rx from 'rxjs';
+import Crypto from 'crypto'
 import { newPriceReported, newTransactionReported } from './inversion'
+import Fetch from '../utils/fetch';
 
 
 
 // Constnts
 const
+    BITSO_API_KEY = process.env.BITSO_API_KEY,
+    BITSO_API_SECRET = process.env.BITSO_API_SECRET,
+    BITSO_BASE_URL = 'https://api.bitso.com',
     ETHERIUM_SYMBOL = 'eth',
     RIPPLE_SYMBOL = 'xrp',
     InitialState = {
@@ -21,6 +26,9 @@ const
 
 // Actions
 const
+    GET_BITSO_FEES = 'el-huizache-inversionista/bitso/GET_BITSO_FEES',
+    GET_BITSO_FEES_SUCCESS = 'el-huizache-inversionista/bitso/GET_BITSO_FEES_SUCCESS',
+    GET_BITSO_FEES_ERROR = 'el-huizache-inversionista/bitso/GET_BITSO_FEES_ERROR',
     BOOK_SUBSCRIBED = 'el-huizache-inversionista/bitso/BOOK_SUBSCRIBED',
     INCOMING_MESSAGE = 'el-huizache-inversionista/bitso/INCOMING_MESSAGE',
     TRADE_BUY_RECEIVED = 'el-huizache-inversionista/bitso/TRADE_BUY_RECEIVED',
@@ -71,6 +79,23 @@ export const connectionToBitsoClosed = () => ({
 
 export const connectionToBitsoOpen = () => ({
     type: CONNECTION_TO_BITSO_OPEN
+})
+
+export const getBitsoFees = () => ({
+    type: GET_BITSO_FEES,
+    key: BITSO_API_KEY,
+    secret: BITSO_API_SECRET,
+    nonce: new Date().getTime()
+})
+
+export const getBitsoFeesSuccess = (fees) => ({
+    type: GET_BITSO_FEES_SUCCESS,
+    fees
+})
+
+export const getBitsoFeesError = (error) => ({
+    type: GET_BITSO_FEES_ERROR,
+    error
 })
 
 
@@ -131,4 +156,23 @@ export const tradeSellEpic = action$ =>
             console.log(`Alguien vendió ${amount}${major} a $${rate}${minor} con valor de $${value}${minor}`)
         } )
         .ignoreElements()
-        
+
+export const getBitsoFeesEpic = action$ => 
+    action$
+        .ofType(GET_BITSO_FEES)
+        .mergeMap(
+            ({ key, secret, nonce }) => {
+                const 
+                    request_path = '/v3/fees/',
+                    data = nonce+'GET'+request_path,
+                    signature = Crypto.createHmac('sha256', secret).update(data).digest('hex')
+                
+                return Rx.Observable.fromPromise(
+                    Fetch({
+                        uri: `${BITSO_BASE_URL}${request_path}`,
+                        headers: { Authorization: `Bitso ${key}:${nonce}:${signature}` }
+                    })
+                )
+            }
+        )
+        .map( ({ payload: { payload: { fees} } }) => getBitsoFeesSuccess(fees) )

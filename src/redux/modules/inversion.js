@@ -93,9 +93,13 @@ export const printPriceDetailsEpic = (action$, store) =>
         .do( ({ currency, price }) => {
             const { inversion: { eth, xrp } } = store.getState()
             console.log(
-                `Market
-                    Etherium => Precio: ${eth.marketPrice}mxn, Promedio ${eth.avarage}mxn, Desv. Est.: ${eth.standardDeviation}
-                    Ripple => Precio: ${xrp.marketPrice}mxn, Promedio ${xrp.avarage}mxn, Desv. Est.: ${xrp.standardDeviation}`
+`Market
+    Etherium => 
+        Pool de datos ${eth.priceHistory.length}: ${eth.priceHistory}
+        Precio: ${eth.marketPrice}mxn, Promedio ${eth.avarage}mxn, Desv. Est.: ${eth.standardDeviation}
+    Ripple => 
+        Pool de datos ${xrp.priceHistory.length}: ${xrp.priceHistory}
+        Precio: ${xrp.marketPrice}mxn, Promedio ${xrp.avarage}mxn, Desv. Est.: ${xrp.standardDeviation}`
             )
         } )
         .ignoreElements()
