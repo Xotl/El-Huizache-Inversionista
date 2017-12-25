@@ -1,8 +1,8 @@
 'use stric';
 
-import { connectToBitso } from "./bisto"
 import configureStore from './redux/configureStore'
+import { conectTotBitso } from "./redux/modules/bitso";
 
 
 const store = configureStore()
-connectToBitso(store)
+store.dispatch( conectTotBitso() )
