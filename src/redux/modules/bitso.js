@@ -128,7 +128,7 @@ export default function reducer(state = InitialState, action = {}) {
 
 
 // Side effects
-export const connectToBitsoEpic = (action$, store) =>
+export const connectToBitsoEpic = action$ =>
     action$
         .ofType(CONNECT_TO_BITSO)
         .mergeMap( () => Rx.Observable.create(
@@ -147,7 +147,7 @@ export const connectToBitsoEpic = (action$, store) =>
             }
         ) )
 
-export const onConnectionToBitsoOpen = (action$, store) =>
+export const onConnectionToBitsoOpen = action$ =>
     action$
         .ofType(CONNECTION_TO_BITSO_OPEN)
         .mergeMap(
@@ -158,6 +158,14 @@ export const onConnectionToBitsoOpen = (action$, store) =>
                 return [ subscribedToBitso(), getBitsoFees() ]
             }
         )
+
+export const onConnectionToBitsoClosed = action$ =>
+    action$
+        .ofType(CONNECTION_TO_BITSO_CLOSED)
+        .do( () => {
+            console.log('Connection to Bitso closed!', (new Date).toISOString() )
+        })
+        .ignoreElements()
 
 export const incomingMessageBitsoEpic = (action$, store) =>
     action$
