@@ -8,6 +8,7 @@ import WebSocket from 'ws'
 import Crypto from 'crypto'
 import { newPriceReported, newTransactionReported, updateFees } from './inversion'
 import Fetch from '../utils/fetch';
+import { postMessage } from './slack';
 
 
 
@@ -152,6 +153,7 @@ export const onConnectionToBitsoOpen = action$ =>
         .ofType(CONNECTION_TO_BITSO_OPEN)
         .mergeMap(
             ({ socket }) => {
+                console.log(`Connection to Bitso open at ${(new Date).toISOString()}!`)
                 BITSO_SUBSCRIPTIONS.forEach(
                     subscription => socket.send(JSON.stringify(subscription))
                 )
@@ -162,10 +164,11 @@ export const onConnectionToBitsoOpen = action$ =>
 export const onConnectionToBitsoClosed = action$ =>
     action$
         .ofType(CONNECTION_TO_BITSO_CLOSED)
-        .do( () => {
-            console.log('Connection to Bitso closed!', (new Date).toISOString() )
+        .map( () => {
+            const msg = `Connection to Bitso closed at ${(new Date).toISOString()}!`
+            console.log(msg)
+            return postMessage(msg)
         })
-        .ignoreElements()
 
 export const incomingMessageBitsoEpic = (action$, store) =>
     action$
