@@ -176,3 +176,8 @@ export const getBitsoFeesEpic = action$ =>
             }
         )
         .map( ({ payload: { payload: { fees} } }) => getBitsoFeesSuccess(fees) )
+
+export const getFeesOnConnectionEpic = action$ => 
+    action$
+        .ofType(CONNECTION_TO_BITSO_OPEN)
+        .map( getBitsoFees )
