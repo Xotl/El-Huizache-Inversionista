@@ -1,5 +1,6 @@
 'use stric';
 import BigNumber from "bignumber.js";
+import { postMessage } from './slack';
 
 
 // Globals
@@ -8,6 +9,8 @@ const
     ARRIBA = 'ARRIBA',
     ABAJO = 'ABAJO',
     DENTRO = 'DENTRO',
+    VENDER = 'VENDER',
+    COMPRAR = 'COMPRAR',
     initialState = {
         fees: null,
         eth: {
@@ -28,17 +31,27 @@ const
             topCajita: null,
             bottomCajita: null,
             currentPosition: null,
-            gapCajita: null,
-            precioDeRecuperacion: null
+            gapCajita: null
         },
         cajita_xrp: {
             high: null,
             low: null,
             topCajita: null,
             bottomCajita: null,
-            gapCajita: null,
             currentPosition: null,
-            precioDeRecuperacion: null
+            gapCajita: null
+        },
+        strategy_eth: {
+            precioDeRecuperacion: null,
+            posActualRespectoCajita: null,
+            prevPositionRespectoCajita: null,
+            currentStrategy: VENDER
+        },
+        strategy_xrp: {
+            precioDeRecuperacion: null,
+            posActualRespectoCajita: null,
+            prevPositionRespectoCajita: null,
+            currentStrategy: VENDER
         }
     }
 
@@ -89,8 +102,7 @@ const statisticsCalculation = (state, newPrice) => {
 const cajitaCalculation = (state, { amount, price, currency }, statistics, fees) => {
     const 
         { high, low, topCajita, bottomCajita, currentPosition: prevPosition } = state,
-        marketPrice = new BigNumber(price),
-        precioDeRecuperacion = marketPrice.times( BigNumber(1).minus(fees.fee_decimal) ).times( BigNumber(1).minus(fees.fee_decimal) )
+        marketPrice = new BigNumber(price)
 
     if ( prevPosition === null ) {
         // First run
@@ -101,8 +113,7 @@ const cajitaCalculation = (state, { amount, price, currency }, statistics, fees)
             topCajita: newTopCajita,
             bottomCajita: newTopCajita,
             gapCajita: new BigNumber(0),
-            currentPosition: price,// Lo guarda como string
-            precioDeRecuperacion: precioDeRecuperacion.toFixed(2, BigNumber.ROUND_DOWN)
+            currentPosition: price// Lo guarda como string
         })
     }
 
@@ -127,17 +138,15 @@ const cajitaCalculation = (state, { amount, price, currency }, statistics, fees)
     
     let 
         newTopCajita = newHigh.minus(statistics.standardDeviation),
-        newBottomCajita = newLow.plus(statistics.standardDeviation),
-        newGapCajita = newTopCajita.minus(newBottomCajita)
+        newBottomCajita = newLow.plus(statistics.standardDeviation)
 
     return Object.assign({}, state, {
         high: newHigh,
         low: newLow,
         topCajita: newTopCajita,
-        bottomCajita: newBottomCajita,
-        gapCajita: newGapCajita.greaterThan(0) ? newGapCajita : new BigNumber(0),
-        currentPosition: statistics.marketPrice,
-        precioDeRecuperacion: precioDeRecuperacion.toFixed(2, BigNumber.ROUND_DOWN)
+        bottomCajita: newBottomCajita.lessThan(newTopCajita) ? newBottomCajita : newTopCajita,
+        gapCajita: newTopCajita.greaterThan(newBottomCajita) ? newTopCajita.minus(newBottomCajita) : new BigNumber(0),
+        currentPosition: statistics.marketPrice
     })
 }
 
@@ -147,12 +156,21 @@ export default function reducer(state = initialState, action = {}) {
 
     switch (action.type) {
         case NEW_TRANSACTION_REPORTED:
-            const statistics = statisticsCalculation( state[action.currency], action.price )
+            const 
+                statistics = statisticsCalculation( state[action.currency], action.price ),
+                cajita = cajitaCalculation( state[`cajita_${action.currency}`], action, statistics, state.fees[`${action.currency}_mxn`] ),
+                marketPrice = new BigNumber(action.price)
+
             return Object.assign({}, state, {
                 [action.currency]: statistics,
-                [`cajita_${action.currency}`]: cajitaCalculation(
-                    state[`cajita_${action.currency}`], action, statistics, state.fees[`${action.currency}_mxn`]
-                )
+                [`cajita_${action.currency}`]: cajita,
+                [`strategy_${action.currency}`]: {
+                    precioDeRecuperacion: marketPrice.times( BigNumber(1).minus(state.fees[`${action.currency}_mxn`].fee_decimal) ).times( BigNumber(1).minus(state.fees[`${action.currency}_mxn`].fee_decimal) ).toFixed(2, BigNumber.ROUND_DOWN),
+                    posActualRespectoCajita: marketPrice.greaterThan(cajita.topCajita) ?
+                                        ARRIBA : ( marketPrice.lessThan(cajita.bottomCajita) ? ABAJO : DENTRO ),
+                    prevPositionRespectoCajita: BigNumber(state[`cajita_${action.currency}`].currentPosition || marketPrice).greaterThan(cajita.topCajita) ?
+                                        ARRIBA : ( marketPrice.lessThan(cajita.bottomCajita) ? ABAJO : DENTRO )
+                 }
             })
         
         case UPDATE_FEES:
@@ -172,16 +190,42 @@ export default function reducer(state = initialState, action = {}) {
 export const printPriceDetailsEpic = (action$, store) => 
     action$
         .ofType(NEW_TRANSACTION_REPORTED)
-        .do( ({ currency, price }) => {
-            const { inversion: { eth, xrp, cajita_eth, cajita_xrp } } = store.getState()
+        .map( ({ currency, price }) => {
+            const { inversion: { 
+                eth, xrp, cajita_eth, cajita_xrp, strategy_eth, strategy_xrp,
+                [`strategy_${currency}`]: { precioDeRecuperacion, posActualRespectoCajita, prevPositionRespectoCajita },
+                [currency]: stats
+            } } = store.getState()
             console.log(
 `Market
     Etherium (${eth.priceHistory.length}) => 
-        Cajita: High ${cajita_eth.high}, Low ${cajita_eth.low}, Top ${cajita_eth.topCajita}, Bottom ${cajita_eth.bottomCajita}, Gap: ${cajita_eth.gapCajita}, Precio Retorno:  ${cajita_eth.precioDeRecuperacion}
+        Cajita: High ${cajita_eth.high}, Low ${cajita_eth.low}, Top ${cajita_eth.topCajita}, Bottom ${cajita_eth.bottomCajita}, Gap: ${cajita_eth.gapCajita}, Precio Retorno: ${strategy_eth.precioDeRecuperacion}
         Precio: ${eth.marketPrice}mxn, Promedio ${eth.avarage}mxn, Desv. Est.: ${eth.standardDeviation}
     Ripple (${xrp.priceHistory.length}) => 
-        Cajita: High ${cajita_xrp.high}, Low ${cajita_xrp.low}, Top ${cajita_xrp.topCajita}, Bottom ${cajita_xrp.bottomCajita}, Gap: ${cajita_xrp.gapCajita}, Precio Retorno:  ${cajita_xrp.precioDeRecuperacion}
+        Cajita: High ${cajita_xrp.high}, Low ${cajita_xrp.low}, Top ${cajita_xrp.topCajita}, Bottom ${cajita_xrp.bottomCajita}, Gap: ${cajita_xrp.gapCajita}, Precio Retorno: ${strategy_xrp.precioDeRecuperacion}
         Precio: ${xrp.marketPrice}mxn, Promedio ${xrp.avarage}mxn, Desv. Est.: ${xrp.standardDeviation}`
             )
+
+
+            const marketPrice = new BigNumber(price)
+            
+            if (stats.priceHistory.length > 10 && posActualRespectoCajita !== prevPositionRespectoCajita ) {
+                switch (true) {
+                    case posActualRespectoCajita === DENTRO && prevPositionRespectoCajita === ARRIBA:
+                        return postMessage(`Se salió el "${currency}" de la cajita a un precio de ${price}mxn`)
+                        
+                    case posActualRespectoCajita === DENTRO && prevPositionRespectoCajita === ABAJO:
+                    case posActualRespectoCajita === ARRIBA && prevPositionRespectoCajita === DENTRO:
+                        return postMessage(`Momento de vender "${currency}"  porque va a la baja con un precio de $${price}mxn`)
+
+
+                    case posActualRespectoCajita === ABAJO && prevPositionRespectoCajita === DENTRO:
+                        return postMessage(`Hora de comprar "${currency}" a un precio de $${price}mxn`)
+
+                    case posActualRespectoCajita === ARRIBA && prevPositionRespectoCajita === ABAJO:
+                    case posActualRespectoCajita === ABAJO && prevPositionRespectoCajita === ARRIBA:
+                        return postMessage(`Caso raro de "${currency}" (${prevPositionRespectoCajita} => ${posActualRespectoCajita}) a un precio de $${price}mxn`)
+                }
+            }
         } )
-        .ignoreElements()
+        .filter( action => action !== undefined )
