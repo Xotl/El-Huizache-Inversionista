@@ -28,7 +28,8 @@ const
             topCajita: null,
             bottomCajita: null,
             currentPosition: null,
-            gapCajita: null
+            gapCajita: null,
+            precioDeRecuperacion: null
         },
         cajita_xrp: {
             high: null,
@@ -36,7 +37,8 @@ const
             topCajita: null,
             bottomCajita: null,
             gapCajita: null,
-            currentPosition: null
+            currentPosition: null,
+            precioDeRecuperacion: null
         }
     }
 
@@ -85,8 +87,10 @@ const statisticsCalculation = (state, newPrice) => {
 }
 
 const cajitaCalculation = (state, { amount, price, currency }, statistics, fees) => {
-    const { high, low, topCajita, bottomCajita, currentPosition: prevPosition } = state
-    const marketPrice = new BigNumber(price)
+    const 
+        { high, low, topCajita, bottomCajita, currentPosition: prevPosition } = state,
+        marketPrice = new BigNumber(price),
+        precioDeRecuperacion = marketPrice.times( BigNumber(1).minus(fees.fee_decimal) ).times( BigNumber(1).minus(fees.fee_decimal) )
 
     if ( prevPosition === null ) {
         // First run
@@ -97,7 +101,8 @@ const cajitaCalculation = (state, { amount, price, currency }, statistics, fees)
             topCajita: newTopCajita,
             bottomCajita: newTopCajita,
             gapCajita: new BigNumber(0),
-            currentPosition: price// Lo guarda como string
+            currentPosition: price,// Lo guarda como string
+            precioDeRecuperacion: precioDeRecuperacion.toFixed(2, BigNumber.ROUND_DOWN)
         })
     }
 
@@ -117,19 +122,22 @@ const cajitaCalculation = (state, { amount, price, currency }, statistics, fees)
     else if ( posActualRespectoCajita === ABAJO ) {
         newLow = marketPrice.lessThan( low ) ? marketPrice : low
     }
+
+
     
-    const 
+    let 
         newTopCajita = newHigh.minus(statistics.standardDeviation),
         newBottomCajita = newLow.plus(statistics.standardDeviation),
         newGapCajita = newTopCajita.minus(newBottomCajita)
-        
+
     return Object.assign({}, state, {
         high: newHigh,
         low: newLow,
         topCajita: newTopCajita,
         bottomCajita: newBottomCajita,
         gapCajita: newGapCajita.greaterThan(0) ? newGapCajita : new BigNumber(0),
-        currentPosition: statistics.marketPrice
+        currentPosition: statistics.marketPrice,
+        precioDeRecuperacion: precioDeRecuperacion.toFixed(2, BigNumber.ROUND_DOWN)
     })
 }
 
@@ -169,10 +177,10 @@ export const printPriceDetailsEpic = (action$, store) =>
             console.log(
 `Market
     Etherium (${eth.priceHistory.length}) => 
-        Cajita: High ${cajita_eth.high}, Low ${cajita_eth.low}, Top ${cajita_eth.topCajita}, Bottom ${cajita_eth.bottomCajita}, Gap: ${cajita_eth.gapCajita}
+        Cajita: High ${cajita_eth.high}, Low ${cajita_eth.low}, Top ${cajita_eth.topCajita}, Bottom ${cajita_eth.bottomCajita}, Gap: ${cajita_eth.gapCajita}, Precio Retorno:  ${cajita_eth.precioDeRecuperacion}
         Precio: ${eth.marketPrice}mxn, Promedio ${eth.avarage}mxn, Desv. Est.: ${eth.standardDeviation}
     Ripple (${xrp.priceHistory.length}) => 
-        Cajita: High ${cajita_xrp.high}, Low ${cajita_xrp.low}, Top ${cajita_xrp.topCajita}, Bottom ${cajita_xrp.bottomCajita}, Gap: ${cajita_xrp.gapCajita}
+        Cajita: High ${cajita_xrp.high}, Low ${cajita_xrp.low}, Top ${cajita_xrp.topCajita}, Bottom ${cajita_xrp.bottomCajita}, Gap: ${cajita_xrp.gapCajita}, Precio Retorno:  ${cajita_xrp.precioDeRecuperacion}
         Precio: ${xrp.marketPrice}mxn, Promedio ${xrp.avarage}mxn, Desv. Est.: ${xrp.standardDeviation}`
             )
         } )
