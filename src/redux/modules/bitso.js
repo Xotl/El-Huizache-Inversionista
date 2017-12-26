@@ -12,10 +12,13 @@ import { postMessage } from './slack';
 
 
 
-// Constnts
+// Constants
 const
     BITSO_API_KEY = process.env.BITSO_API_KEY,
     BITSO_API_SECRET = process.env.BITSO_API_SECRET,
+
+    BITSO_BALANCE_API_PATH = '/v3/balance/',
+    BITSO_FEES_API_PATH = '/v3/fees/',
 
     BITSO_SUBSCRIPTIONS = [
         { action: 'subscribe', book: 'eth_mxn', type: 'trades' },
@@ -40,6 +43,24 @@ const
     }
 
 
+
+// Utils
+const generateAuthorizationHeader = (request_path, requestMethod = 'GET') => {
+    const
+        nonce = new Date().getTime(),
+        signature = Crypto.createHmac('sha256', BITSO_API_SECRET).update(nonce + requestMethod + request_path).digest('hex')
+
+    return `Bitso ${BITSO_API_KEY}:${nonce}:${signature}`
+}
+
+const generateObservableBitsoGetRequestFromAction = ({request_path, authorizationHeader }) => 
+    Rx.Observable.fromPromise( Fetch({
+        uri: `${BITSO_BASE_URL}${request_path}`,
+        headers: { Authorization: authorizationHeader }
+    }) 
+)
+
+
 // Actions
 const
     GET_BITSO_FEES = 'el-huizache-inversionista/bitso/GET_BITSO_FEES',
@@ -49,6 +70,9 @@ const
     TRADE_BUY_RECEIVED = 'el-huizache-inversionista/bitso/TRADE_BUY_RECEIVED',
     TRADE_SELL_RECEIVED = 'el-huizache-inversionista/bitso/TRADE_SELL_RECEIVED',
 
+    GET_BITSO_BALANCE = 'el-huizache-inversionista/bitso/GET_BITSO_BALANCE',
+    GET_BITSO_BALANCE_SUCCESS = 'el-huizache-inversionista/bitso/GET_BITSO_BALANCE_SUCCESS',
+    GET_BITSO_BALANCE_ERROR = 'el-huizache-inversionista/bitso/GET_BITSO_BALANCE_ERROR',
 
     SUBSCRIBED_TO_BITSO = 'el-huizache-inversionista/bitso/SUBSCRIBED_TO_BITSO',
     INCOMING_MESSAGE = 'el-huizache-inversionista/bitso/INCOMING_MESSAGE',
@@ -94,14 +118,13 @@ export const subscribedToBitso = () => ({
 
 export const getBitsoFees = () => ({
     type: GET_BITSO_FEES,
-    key: BITSO_API_KEY,
-    secret: BITSO_API_SECRET,
-    nonce: new Date().getTime()
+    request_path: BITSO_FEES_API_PATH,
+    authorizationHeader: generateAuthorizationHeader(BITSO_FEES_API_PATH)
 })
 
-export const getBitsoFeesSuccess = (fees) => ({
+export const getBitsoFeesSuccess = (payload) => ({
     type: GET_BITSO_FEES_SUCCESS,
-    fees
+    fees: payload.fees
 })
 
 export const getBitsoFeesError = (error) => ({
@@ -109,7 +132,21 @@ export const getBitsoFeesError = (error) => ({
     error
 })
 
+export const getBitsoBalance = () => ({
+    type: GET_BITSO_BALANCE,
+    request_path: BITSO_BALANCE_API_PATH,
+    authorizationHeader: generateAuthorizationHeader(BITSO_BALANCE_API_PATH)
+})
 
+export const getBitsoBalanceSuccess = (response) => ({
+    type: GET_BITSO_BALANCE_SUCCESS,
+    fundings: response.payload.payload.balances
+})
+
+export const getBitsoBalanceError = (error) => ({
+    type: GET_BITSO_BALANCE_ERROR,
+    error
+})
 
 // Reducer
 export default function reducer(state = InitialState, action = {}) {
@@ -201,16 +238,6 @@ export const notifyNewTransactionEpic = action$ =>
         .ofType(TRADE_BUY_RECEIVED, TRADE_SELL_RECEIVED)
         .map(({ amount, rate, major }) => newTransactionReported(amount, rate, major))
 
-export const notifyNewPricesEpic = action$ =>
-    action$
-        .ofType(TRADE_BUY_RECEIVED, TRADE_SELL_RECEIVED)
-        .map(({ rate, major, marketPrice }) => {
-            if (rate !== marketPrice) {
-                return newPriceReported(rate, major, marketPrice);
-            }
-        })
-        .filter(action => action !== undefined)
-
 export const tradeBuyEpic = action$ =>
     action$
         .ofType(TRADE_BUY_RECEIVED)
@@ -230,19 +257,11 @@ export const tradeSellEpic = action$ =>
 export const getBitsoFeesEpic = action$ =>
     action$
         .ofType(GET_BITSO_FEES)
-        .mergeMap(
-            ({ key, secret, nonce }) => {
-                const
-                    request_path = '/v3/fees/',
-                    data = nonce + 'GET' + request_path,
-                    signature = Crypto.createHmac('sha256', secret).update(data).digest('hex')
+        .mergeMap( generateObservableBitsoGetRequestFromAction )
+        .mergeMap( response => [ getBitsoFeesSuccess(response.payload), updateFees(response.payload.payload.fees) ] )
 
-                return Rx.Observable.fromPromise(
-                    Fetch({
-                        uri: `${BITSO_BASE_URL}${request_path}`,
-                        headers: { Authorization: `Bitso ${key}:${nonce}:${signature}` }
-                    })
-                )
-            }
-        )
-        .mergeMap(({ payload: { payload: { fees } } }) => [ getBitsoFeesSuccess(fees), updateFees(fees) ])
+export const getBitsoBalanceEpic = action$ =>
+    action$
+        .ofType(GET_BITSO_BALANCE)
+        .mergeMap( generateObservableBitsoGetRequestFromAction )
+        .map( getBitsoBalanceSuccess )
