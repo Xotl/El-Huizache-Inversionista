@@ -10,7 +10,7 @@ import inversion, { printPriceDetailsEpic } from './inversion'
 
 export const rootEpic = combineEpics(
   // Bitso
-  incomingMessageBitsoEpic, notifyNewTransactionEpic, getBitsoFeesEpic, onConnectionToBitsoOpen, 
+  incomingMessageBitsoEpic, getBitsoFeesEpic, onConnectionToBitsoOpen, 
   connectToBitsoEpic, onConnectionToBitsoClosed, getBitsoBalanceEpic,
 
   // Slack

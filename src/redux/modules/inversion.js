@@ -11,48 +11,96 @@ const
     DENTRO = 'DENTRO',
     VENDER = 'VENDER',
     COMPRAR = 'COMPRAR',
+
+    initialStatisticsState = {
+        marketPrice: null,
+        standardDeviation: null,
+        avarage: null,
+        priceHistory: []
+    },
+
+    initialCajitaState = {
+        high: null,
+        low: null,
+        topCajita: null,
+        bottomCajita: null,
+        currentPosition: null,
+        gapCajita: null
+    },
+
     initialState = {
-        fees: null,
-        eth: {
-            marketPrice: null,
-            standardDeviation: null,
-            avarage: null,
-            priceHistory: []
-        },
-        xrp: {
-            marketPrice: null,
-            standardDeviation: null,
-            avarage: null,
-            priceHistory: []
-        },
-        cajita_eth: {
-            high: null,
-            low: null,
-            topCajita: null,
-            bottomCajita: null,
-            currentPosition: null,
-            gapCajita: null
-        },
-        cajita_xrp: {
-            high: null,
-            low: null,
-            topCajita: null,
-            bottomCajita: null,
-            currentPosition: null,
-            gapCajita: null
-        },
-        strategy_eth: {
-            precioDeRecuperacion: null,
-            posActualRespectoCajita: null,
-            prevPositionRespectoCajita: null,
-            currentStrategy: VENDER
-        },
-        strategy_xrp: {
-            precioDeRecuperacion: null,
-            posActualRespectoCajita: null,
-            prevPositionRespectoCajita: null,
-            currentStrategy: VENDER
+
+        /*
+        {
+            [CURRENCY] : {
+                fees: {
+
+                }
+                strategy: {
+                    precioDeRecuperacion: null,
+                    posActualRespectoCajita: null,
+                    prevPositionRespectoCajita: null,
+                    currentStrategy: VENDER
+                }
+                statistics: {
+                    marketPrice: null,
+                    standardDeviation: null,
+                    avarage: null,
+                    priceHistory: []
+                }
+                cajita: {
+                    high: null,
+                    low: null,
+                    topCajita: null,
+                    bottomCajita: null,
+                    currentPosition: null,
+                    gapCajita: null
+                }
+            }
         }
+        */
+
+        // fees: null,
+        // eth: {
+        //     marketPrice: null,
+        //     standardDeviation: null,
+        //     avarage: null,
+        //     priceHistory: []
+        // },
+        // xrp: {
+        //     marketPrice: null,
+        //     standardDeviation: null,
+        //     avarage: null,
+        //     priceHistory: []
+        // },
+        // cajita_eth: {
+        //     high: null,
+        //     low: null,
+        //     topCajita: null,
+        //     bottomCajita: null,
+        //     currentPosition: null,
+        //     gapCajita: null
+        // },
+        // cajita_xrp: {
+        //     high: null,
+        //     low: null,
+        //     topCajita: null,
+        //     bottomCajita: null,
+        //     currentPosition: null,
+        //     gapCajita: null
+        // },
+        // strategy_eth: {
+        //     precioDeRecuperacion: null,
+        //     posActualRespectoCajita: null,
+        //     prevPositionRespectoCajita: null,
+        //     currentStrategy: VENDER
+        // },
+        // strategy_xrp: {
+        //     precioDeRecuperacion: null,
+        //     posActualRespectoCajita: null,
+        //     prevPositionRespectoCajita: null,
+        //     currentStrategy: VENDER
+        // }
     }
 
 
@@ -65,20 +113,20 @@ const
 
 
 // Action Creators
-export const newTransactionReported = (amount, price, currency) => ({
+export const newTransactionReported = (vendor, amount, price, book) => ({
     type: NEW_TRANSACTION_REPORTED,
-    amount, price, currency
+    vendor, amount, price, book
 })
 
-export const updateFees = (fees) => ({
+export const updateFees = (book, fee_decimal, fee_percent) => ({
     type: UPDATE_FEES,
-    fees
+    book, fee_decimal, fee_percent
 })
 
 
 
 // Reducer Helpers
-const statisticsCalculation = (state, newPrice) => {
+const statisticsCalculation = (state = initialStatisticsState, newPrice) => {
 
     const priceHistory = state.priceHistory.slice()// Clona el array
     priceHistory.unshift( new BigNumber(newPrice) )// Agrega el precio al principio del array
@@ -99,10 +147,10 @@ const statisticsCalculation = (state, newPrice) => {
     })
 }
 
-const cajitaCalculation = (state, { amount, price, currency }, statistics, fees) => {
+const cajitaCalculation = (state = initialCajitaState, statistics, fees) => {
     const 
         { high, low, topCajita, bottomCajita, currentPosition: prevPosition } = state,
-        marketPrice = new BigNumber(price)
+        marketPrice = new BigNumber(statistics.marketPrice)
 
     if ( prevPosition === null ) {
         // First run
@@ -113,7 +161,7 @@ const cajitaCalculation = (state, { amount, price, currency }, statistics, fees)
             topCajita: newTopCajita,
             bottomCajita: newTopCajita,
             gapCajita: new BigNumber(0),
-            currentPosition: price// Lo guarda como string
+            currentPosition: statistics.marketPrice// Lo guarda como string
         })
     }
 
@@ -157,28 +205,30 @@ export default function reducer(state = initialState, action = {}) {
     switch (action.type) {
         case NEW_TRANSACTION_REPORTED:
             const 
-                statistics = statisticsCalculation( state[action.currency], action.price ),
-                cajita = cajitaCalculation( state[`cajita_${action.currency}`], action, statistics, state.fees[`${action.currency}_mxn`] ),
-                marketPrice = new BigNumber(action.price)
+                currentBookState = state[action.book] || {},
+                marketPrice = new BigNumber(action.price),
+                statistics = statisticsCalculation( currentBookState.statistics, action.price ),
+                cajita = cajitaCalculation(currentBookState.cajita, statistics, currentBookState.fees )
+
 
             return Object.assign({}, state, {
-                [action.currency]: statistics,
-                [`cajita_${action.currency}`]: cajita,
-                [`strategy_${action.currency}`]: {
-                    precioDeRecuperacion: marketPrice.times( BigNumber(1).minus(state.fees[`${action.currency}_mxn`].fee_decimal) ).times( BigNumber(1).minus(state.fees[`${action.currency}_mxn`].fee_decimal) ).toFixed(2, BigNumber.ROUND_DOWN),
-                    posActualRespectoCajita: marketPrice.greaterThan(cajita.topCajita) ?
-                                        ARRIBA : ( marketPrice.lessThan(cajita.bottomCajita) ? ABAJO : DENTRO ),
-                    prevPositionRespectoCajita: BigNumber(state[`cajita_${action.currency}`].currentPosition || marketPrice).greaterThan(cajita.topCajita) ?
-                                        ARRIBA : ( marketPrice.lessThan(cajita.bottomCajita) ? ABAJO : DENTRO )
-                 }
+                [action.book]: Object.assign({}, state[action.book], {
+                    statistics, cajita,
+                    strategy: {
+                        precioDeRecuperacion: marketPrice.times( BigNumber(1).minus(currentBookState.fees.fee_decimal) ).times( BigNumber(1).minus(currentBookState.fees.fee_decimal) ).toFixed(2, BigNumber.ROUND_DOWN),
+                        posActualRespectoCajita: marketPrice.greaterThan(cajita.topCajita) ?
+                                            ARRIBA : ( marketPrice.lessThan(cajita.bottomCajita) ? ABAJO : DENTRO ),
+                        prevPositionRespectoCajita: BigNumber(cajita.currentPosition || marketPrice).greaterThan(cajita.topCajita) ?
+                                            ARRIBA : ( marketPrice.lessThan(cajita.bottomCajita) ? ABAJO : DENTRO )
+                     }
+                })
             })
         
         case UPDATE_FEES:
             return Object.assign({}, state, {
-                fees: action.fees.reduce(
-                    (res, { book, fee_percent, fee_decimal }) => Object.assign( res, { [book]: { fee_percent, fee_decimal } } ),
-                    {}
-                )
+                [action.book]: {
+                    fees: { fee_decimal: action.fee_decimal, fee_percent: action.fee_percent }
+                }
             })
 
         default: return state
@@ -190,22 +240,19 @@ export default function reducer(state = initialState, action = {}) {
 export const printPriceDetailsEpic = (action$, store) => 
     action$
         .ofType(NEW_TRANSACTION_REPORTED)
-        .map( ({ currency, price }) => {
-            const { inversion: { 
-                eth, xrp, cajita_eth, cajita_xrp, strategy_eth, strategy_xrp,
-                [`strategy_${currency}`]: { precioDeRecuperacion, posActualRespectoCajita, prevPositionRespectoCajita },
-                [currency]: stats
-            } } = store.getState()
-            console.log(
-`Market
-    Etherium (${eth.priceHistory.length}) => 
-        Cajita: High ${cajita_eth.high}, Low ${cajita_eth.low}, Top ${cajita_eth.topCajita}, Bottom ${cajita_eth.bottomCajita}, Gap: ${cajita_eth.gapCajita}, Precio Retorno: ${strategy_eth.precioDeRecuperacion}
-        Precio: ${eth.marketPrice}mxn, Promedio ${eth.avarage}mxn, Desv. Est.: ${eth.standardDeviation}
-    Ripple (${xrp.priceHistory.length}) => 
-        Cajita: High ${cajita_xrp.high}, Low ${cajita_xrp.low}, Top ${cajita_xrp.topCajita}, Bottom ${cajita_xrp.bottomCajita}, Gap: ${cajita_xrp.gapCajita}, Precio Retorno: ${strategy_xrp.precioDeRecuperacion}
-        Precio: ${xrp.marketPrice}mxn, Promedio ${xrp.avarage}mxn, Desv. Est.: ${xrp.standardDeviation}`
-            )
+        .map( () => {
+            const { inversion: state } = store.getState()
+            const currenStatus = Object.keys(state).filter(book => !!state[book].statistics).map(book => {
+                const { statistics, cajita, strategy } = state[book]
+                return `  ${book} (${statistics.priceHistory.length}) => \t\n` +
+                `    Cajita: High ${cajita.high}, Low ${cajita.low}, Top ${cajita.topCajita}, Bottom ${cajita.bottomCajita}, Gap: ${cajita.gapCajita}, Precio Retorno: ${strategy.precioDeRecuperacion}\n` +
+                `    Precio: ${statistics.marketPrice}mxn, Promedio ${statistics.avarage}mxn, Desv. Est.: ${statistics.standardDeviation}`
+            })
 
+            return console.log( `Market\n${currenStatus.join('\n')}` )
+
+
+            // Lógica de inversión
 
             const marketPrice = new BigNumber(price)
             

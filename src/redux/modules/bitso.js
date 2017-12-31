@@ -16,6 +16,7 @@ import { postMessage } from './slack';
 const
     BITSO_API_KEY = process.env.BITSO_API_KEY,
     BITSO_API_SECRET = process.env.BITSO_API_SECRET,
+    VENDOR_NAME = 'BITSO',
 
     BITSO_BALANCE_API_PATH = '/v3/balance/',
     BITSO_FEES_API_PATH = '/v3/fees/',
@@ -33,13 +34,8 @@ const
     BITSO_BASE_URL = 'https://api.bitso.com',
     BITSO_SOCKET_ENDPOINT = 'wss://ws.bitso.com',
 
-    ETHERIUM_SYMBOL = 'eth',
-    RIPPLE_SYMBOL = 'xrp',
-
     InitialState = {
         connectedToBitso: false,
-        marketValueOf_eth: null,
-        marketValueOf_xrp: null,
     }
 
 
@@ -67,9 +63,6 @@ const
     GET_BITSO_FEES_SUCCESS = 'el-huizache-inversionista/bitso/GET_BITSO_FEES_SUCCESS',
     GET_BITSO_FEES_ERROR = 'el-huizache-inversionista/bitso/GET_BITSO_FEES_ERROR',
 
-    TRADE_BUY_RECEIVED = 'el-huizache-inversionista/bitso/TRADE_BUY_RECEIVED',
-    TRADE_SELL_RECEIVED = 'el-huizache-inversionista/bitso/TRADE_SELL_RECEIVED',
-
     GET_BITSO_BALANCE = 'el-huizache-inversionista/bitso/GET_BITSO_BALANCE',
     GET_BITSO_BALANCE_SUCCESS = 'el-huizache-inversionista/bitso/GET_BITSO_BALANCE_SUCCESS',
     GET_BITSO_BALANCE_ERROR = 'el-huizache-inversionista/bitso/GET_BITSO_BALANCE_ERROR',
@@ -87,16 +80,6 @@ export const incomingMessageBitso = (book, messageType, payload) => ({
     book,
     messageType,
     payload
-})
-
-export const tradeBuyReceived = (amount, rate, value, major, minor, marketPrice) => ({
-    type: TRADE_BUY_RECEIVED,
-    amount, rate, value, major, minor, marketPrice
-})
-
-export const tradeSellReceived = (amount, rate, value, major, minor, marketPrice) => ({
-    type: TRADE_SELL_RECEIVED,
-    amount, rate, value, major, minor, marketPrice
 })
 
 export const connectionToBitsoClosed = () => ({
@@ -122,9 +105,9 @@ export const getBitsoFees = () => ({
     authorizationHeader: generateAuthorizationHeader(BITSO_FEES_API_PATH)
 })
 
-export const getBitsoFeesSuccess = (payload) => ({
+export const getBitsoFeesSuccess = (fees) => ({
     type: GET_BITSO_FEES_SUCCESS,
-    fees: payload.fees
+    fees
 })
 
 export const getBitsoFeesError = (error) => ({
@@ -152,10 +135,6 @@ export const getBitsoBalanceError = (error) => ({
 export default function reducer(state = InitialState, action = {}) {
 
     switch (action.type) {
-        case TRADE_BUY_RECEIVED:
-        case TRADE_SELL_RECEIVED:
-            return Object.assign({}, state, { [`marketValueOf_${action.major}`]: action.rate })
-
         case CONNECTION_TO_BITSO_OPEN: return Object.assign({}, state, { connectedToBitso: true })
         case CONNECTION_TO_BITSO_CLOSED: return Object.assign({}, state, { connectedToBitso: false })
 
@@ -215,50 +194,22 @@ export const incomingMessageBitsoEpic = (action$, store) =>
                 messageType === 'trades' && payload instanceof Array && typeof book !== 'undefined'
         )
         .mergeMap(
-            ({ messageType, book, payload }) => {
-                const { major, minor } = book.split('_').reduce((major, minor) => ({ major, minor }))
-                return payload.map(
-                    ({ a: amount, r: rate, v: value, t: sell }) => ({ messageType, amount, rate, value, sell, major, minor, book })
-                )
-            }
+            ({ messageType, book, payload }) => payload.map(
+                ({ a: amount, r: rate, v: value, t: sell }) => ({ messageType, amount, rate, value, sell, book })
+            )
         )
-        .map(
-            ({ messageType, amount, rate, value, sell, major, minor, book }) => {
-                const { bitso: { [`marketValueOf_${major}`]: marketPrice } } = store.getState()
-                if (sell) {
-                    return tradeSellReceived(amount, rate, value, major, minor, marketPrice)
-                }
-
-                return tradeBuyReceived(amount, rate, value, major, minor, marketPrice)
-            }
+        // .filter( ({ amount, book }) => amount !== undefined && book !== undefined )
+        .map( ({ messageType, amount, rate, value, sell, book }) => 
+            newTransactionReported(VENDOR_NAME, amount, rate, book, !!sell)
         )
-
-export const notifyNewTransactionEpic = action$ =>
-    action$
-        .ofType(TRADE_BUY_RECEIVED, TRADE_SELL_RECEIVED)
-        .map(({ amount, rate, major }) => newTransactionReported(amount, rate, major))
-
-export const tradeBuyEpic = action$ =>
-    action$
-        .ofType(TRADE_BUY_RECEIVED)
-        .do(({ amount, rate, value, major, minor }) => {
-            console.log(`Alguien compró ${amount}${major} a $${rate}${minor} con valor de $${value}${minor}`)
-        })
-        .ignoreElements()
-
-export const tradeSellEpic = action$ =>
-    action$
-        .ofType(TRADE_SELL_RECEIVED)
-        .do(({ amount, rate, value, major, minor }) => {
-            console.log(`Alguien vendió ${amount}${major} a $${rate}${minor} con valor de $${value}${minor}`)
-        })
-        .ignoreElements()
 
 export const getBitsoFeesEpic = action$ =>
     action$
         .ofType(GET_BITSO_FEES)
         .mergeMap( generateObservableBitsoGetRequestFromAction )
-        .mergeMap( response => [ getBitsoFeesSuccess(response.payload), updateFees(response.payload.payload.fees) ] )
+        .mergeMap( ({ payload: { payload: { fees } } }) =>  [ getBitsoFeesSuccess(fees) ].concat(
+            fees.map(fee => updateFees(fee.book, fee.fee_decimal, fees.fee_percent) )
+        ) )
 
 export const getBitsoBalanceEpic = action$ =>
     action$
