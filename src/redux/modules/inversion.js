@@ -16,7 +16,9 @@ const
         marketPrice: null,
         standardDeviation: null,
         avarage: null,
-        priceHistory: []
+        priceHistory: [],
+        high: null,
+        low: null
     },
 
     initialCajitaState = {
@@ -28,9 +30,7 @@ const
         gapCajita: null
     },
 
-    initialState = {
-
-        /*
+    initialState = {/*
         {
             [CURRENCY] : {
                 fees: {
@@ -58,8 +58,7 @@ const
                 }
             }
         }
-        */
-    }
+    */}
 
 
 // Actions
@@ -86,14 +85,21 @@ export const updateFees = (book, fee_decimal, fee_percent) => ({
 // Reducer Helpers
 const statisticsCalculation = (state = initialStatisticsState, newPrice) => {
 
-    const priceHistory = state.priceHistory.slice()// Clona el array
-    priceHistory.unshift( new BigNumber(newPrice) )// Agrega el precio al principio del array
+    const 
+        priceHistory = state.priceHistory.slice(),// Clona el array
+        price = new BigNumber(newPrice)
+
+    priceHistory.unshift( price )// Agrega el precio al principio del array
 
     if (priceHistory.length > MAX_NUM_OF_PRICE_ELEMENTS) {
         priceHistory.length = MAX_NUM_OF_PRICE_ELEMENTS
     }
 
+
+
     const 
+        oldHigh = state.high || newPrice,
+        oldLow = state.low || newPrice,
         avarage = priceHistory.reduce( (sum, price) => price.plus(sum), 0).dividedBy(priceHistory.length),
         standardDeviation = priceHistory.reduce( (sum, price) => price.minus(avarage).pow(2).plus(sum), 0).dividedBy(priceHistory.length).sqrt()
 
@@ -101,7 +107,9 @@ const statisticsCalculation = (state = initialStatisticsState, newPrice) => {
         standardDeviation: standardDeviation.toFixed(2),
         avarage: avarage.toFixed(2),
         priceHistory,
-        marketPrice: newPrice
+        marketPrice: newPrice,
+        high: price.greaterThan(oldHigh) ? newPrice : oldHigh,
+        low: price.lessThan(oldLow) ? newPrice : oldLow
     })
 }
 
@@ -202,9 +210,10 @@ export const printPriceDetailsEpic = (action$, store) =>
             const { inversion: state } = store.getState()
             const currenStatus = Object.keys(state).filter(book => !!state[book].statistics).map(book => {
                 const { statistics, cajita, strategy } = state[book]
-                return `  ${book} (${statistics.priceHistory.length}) => \t\n` +
-                `    Cajita: High ${cajita.high}, Low ${cajita.low}, Top ${cajita.topCajita}, Bottom ${cajita.bottomCajita}, Gap: ${cajita.gapCajita}, Precio Retorno: ${strategy.precioDeRecuperacion}\n` +
-                `    Precio: ${statistics.marketPrice}mxn, Promedio ${statistics.avarage}mxn, Desv. Est.: ${statistics.standardDeviation}`
+                return 
+                    `  ${book} (${statistics.priceHistory.length}) =>\n` +
+                    `    Cajita: High ${cajita.high}, Low ${cajita.low}, Top ${cajita.topCajita}, Bottom ${cajita.bottomCajita}, Gap: ${cajita.gapCajita}, Precio Retorno: ${strategy.precioDeRecuperacion}\n` +
+                    `    Precio: ${statistics.marketPrice}mxn, Promedio ${statistics.avarage}mxn, Desv. Est.: ${statistics.standardDeviation}, High: ${statistics.high}, Low: ${statistics.low}`
             })
 
             return console.log( `Market\n${currenStatus.join('\n')}` )
