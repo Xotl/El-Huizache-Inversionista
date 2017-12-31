@@ -34,7 +34,7 @@ const
         {
             [CURRENCY] : {
                 fees: {
-
+                    fee_decimal, fee_percent
                 }
                 strategy: {
                     precioDeRecuperacion: null,
@@ -59,48 +59,6 @@ const
             }
         }
         */
-
-        // fees: null,
-        // eth: {
-        //     marketPrice: null,
-        //     standardDeviation: null,
-        //     avarage: null,
-        //     priceHistory: []
-        // },
-        // xrp: {
-        //     marketPrice: null,
-        //     standardDeviation: null,
-        //     avarage: null,
-        //     priceHistory: []
-        // },
-        // cajita_eth: {
-        //     high: null,
-        //     low: null,
-        //     topCajita: null,
-        //     bottomCajita: null,
-        //     currentPosition: null,
-        //     gapCajita: null
-        // },
-        // cajita_xrp: {
-        //     high: null,
-        //     low: null,
-        //     topCajita: null,
-        //     bottomCajita: null,
-        //     currentPosition: null,
-        //     gapCajita: null
-        // },
-        // strategy_eth: {
-        //     precioDeRecuperacion: null,
-        //     posActualRespectoCajita: null,
-        //     prevPositionRespectoCajita: null,
-        //     currentStrategy: VENDER
-        // },
-        // strategy_xrp: {
-        //     precioDeRecuperacion: null,
-        //     posActualRespectoCajita: null,
-        //     prevPositionRespectoCajita: null,
-        //     currentStrategy: VENDER
-        // }
     }
 
 
