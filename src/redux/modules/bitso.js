@@ -169,7 +169,7 @@ export const onConnectionToBitsoOpen = action$ =>
         .ofType(CONNECTION_TO_BITSO_OPEN)
         .mergeMap(
             ({ socket }) => {
-                console.log(`Connection to Bitso open at ${(new Date).toString()}!`)
+                console.log(`Connection to Bitso open at ${(new Date).toLocaleString('es-MX', {timeZone: 'America/Mexico_City'})}!`)
                 BITSO_SUBSCRIPTIONS.forEach(
                     subscription => socket.send(JSON.stringify(subscription))
                 )
@@ -181,7 +181,7 @@ export const onConnectionToBitsoClosed = action$ =>
     action$
         .ofType(CONNECTION_TO_BITSO_CLOSED)
         .map( () => {
-            const msg = `Connection to Bitso closed at ${(new Date).toString()}!`
+            const msg = `Connection to Bitso closed at ${(new Date).toLocaleString('es-MX', {timeZone: 'America/Mexico_City'})}!`
             console.log(msg)
             return postMessage(msg)
         })
