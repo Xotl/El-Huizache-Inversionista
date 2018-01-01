@@ -208,10 +208,9 @@ export const printPriceDetailsEpic = (action$, store) =>
         .ofType(NEW_TRANSACTION_REPORTED)
         .map( () => {
             const { inversion: state } = store.getState()
-            const currenStatus = Object.keys(state).filter(book => !!state[book].statistics).map(book => {
+            const currenStatus = Object.keys(state).filter( book => !!state[book].statistics ).map(book => {
                 const { statistics, cajita, strategy } = state[book]
-                return 
-                    `  ${book} (${statistics.priceHistory.length}) =>\n` +
+                return `  ${book} (${statistics.priceHistory.length}) =>\n` +
                     `    Cajita: High ${cajita.high}, Low ${cajita.low}, Top ${cajita.topCajita}, Bottom ${cajita.bottomCajita}, Gap: ${cajita.gapCajita}, Precio Retorno: ${strategy.precioDeRecuperacion}\n` +
                     `    Precio: ${statistics.marketPrice}mxn, Promedio ${statistics.avarage}mxn, Desv. Est.: ${statistics.standardDeviation}, High: ${statistics.high}, Low: ${statistics.low}`
             })
