@@ -208,7 +208,7 @@ export const getBitsoFeesEpic = action$ =>
         .ofType(GET_BITSO_FEES)
         .mergeMap( generateObservableBitsoGetRequestFromAction )
         .mergeMap( ({ payload: { payload: { fees } } }) =>  [ getBitsoFeesSuccess(fees) ].concat(
-            fees.map(fee => updateFees(fee.book, fee.fee_decimal, fees.fee_percent) )
+            fees.map(fee => updateFees(fee.book, fee.fee_decimal, fee.fee_percent) )
         ) )
 
 export const getBitsoBalanceEpic = action$ =>

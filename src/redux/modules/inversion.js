@@ -104,8 +104,8 @@ const statisticsCalculation = (state = initialStatisticsState, newPrice) => {
         standardDeviation = priceHistory.reduce( (sum, price) => price.minus(avarage).pow(2).plus(sum), 0).dividedBy(priceHistory.length).sqrt()
 
     return Object.assign({}, state, {
-        standardDeviation: standardDeviation.toFixed(2),
-        avarage: avarage.toFixed(2),
+        standardDeviation: standardDeviation,
+        avarage: avarage,
         priceHistory,
         marketPrice: newPrice,
         high: price.greaterThan(oldHigh) ? newPrice : oldHigh,
@@ -117,6 +117,7 @@ const cajitaCalculation = (state = initialCajitaState, statistics, fees) => {
     const 
         { high, low, topCajita, bottomCajita, currentPosition: prevPosition } = state,
         marketPrice = new BigNumber(statistics.marketPrice)
+        // comisionHigh = fee
 
     if ( prevPosition === null ) {
         // First run
@@ -131,7 +132,7 @@ const cajitaCalculation = (state = initialCajitaState, statistics, fees) => {
         })
     }
 
-    const 
+    const
         posActualRespectoCajita = marketPrice.greaterThan(topCajita) ?
                                         ARRIBA : ( marketPrice.lessThan(bottomCajita) ? ABAJO : DENTRO ),
         prevPositionRespectoCajita = BigNumber(prevPosition).greaterThan(topCajita) ?
@@ -211,8 +212,8 @@ export const printPriceDetailsEpic = (action$, store) =>
             const currenStatus = Object.keys(state).filter( book => !!state[book].statistics ).map(book => {
                 const { statistics, cajita, strategy } = state[book]
                 return `  ${book} (${statistics.priceHistory.length}) =>\n` +
-                    `    Cajita: High ${cajita.high}, Low ${cajita.low}, Top ${cajita.topCajita}, Bottom ${cajita.bottomCajita}, Gap: ${cajita.gapCajita}, Precio Retorno: ${strategy.precioDeRecuperacion}\n` +
-                    `    Precio: ${statistics.marketPrice}mxn, Promedio ${statistics.avarage}mxn, Desv. Est.: ${statistics.standardDeviation}, High: ${statistics.high}, Low: ${statistics.low}`
+                    `    Cajita: High ${cajita.high}, Low ${cajita.low}, Top ${cajita.topCajita.toFixed(2)}, Bottom ${cajita.bottomCajita.toFixed(2)}, Gap: ${cajita.gapCajita.toFixed(2)}, Precio Retorno: ${strategy.precioDeRecuperacion}\n` +
+                    `    Precio: ${statistics.marketPrice}mxn, Promedio ${statistics.avarage.toFixed(2)}mxn, Desv. Est.: ${statistics.standardDeviation.toFixed(2)}, High: ${statistics.high}, Low: ${statistics.low}`
             })
 
             return console.log( `Market\n${currenStatus.join('\n')}` )
